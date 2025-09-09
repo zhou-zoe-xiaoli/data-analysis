@@ -1,0 +1,90 @@
+---
+title: "1"
+author: "Zoe"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+
+
+# arithmetic
+
+```{r}
+radius <- 7/2
+# A circle with diameter 7 has a circumference of
+circum <- 2 * pi * radius
+
+# A circle with diameter 7 has an area of
+area <- radius^2 * pi
+
+# A cylinder, with a face diameter of 7 and height of 16, has a volume of 
+vol <- area * 16
+
+```
+
+# Mean and Variance 
+
+```{r}
+data(mpg)
+displ <- mpg$displ
+length <- length(displ)
+sample_mean <- sum(displ) / length
+diff <- displ - sample_mean
+sample_variance <- sum(diff^2)/(length-1)
+sample_mean
+sample_variance
+```
+
+#Starwars Characters
+
+Investigate the data set `starwars`. Answer the following
+
+* How many characters are listed?
+* What kind of data is the `species` column?
+* Explain what the value `NA` means in the `hair_color` column.
+* How many characters are from Tatooine?
+* For humans, what is the average (mean) age?
+
+```{r}
+data("starwars")
+n_chara <- nrow(starwars)
+class_species <- class(starwars$species)
+num_tatooine <- sum(starwars$homeworld == "Tatooine", na.rm = T)
+mean_age_human <- mean(starwars$birth_year[starwars$species=="Human"], na.rm = T)
+cat("How many characters are listed?", n_chara, "\n")
+cat("What kind of data is the `species` column?", class_species, "\n")
+cat("Explain what the value `NA` means in the `hair_color` column.","'NA'stands for not available, which means the hair color information for this character is not available or not provided here.", "\n")
+cat("How many characters are from Tatooine?", num_tatooine, "\n")
+cat("For humans, what is the average (mean) age?", mean_age_human, "\n")
+```
+
+# Height and Mass 
+
+A scatter plot of the columns `height` and `mass` from the `starwars`
+data set. 
+
+```{r}
+ggplot(starwars)+
+  geom_point(aes(height, mass), na.rm = TRUE)+
+  labs(title="Scatter Plot of Height and Mass", x="Height", y="Mass")
+# We can clearly find out from the scatter plot that there exists an outlier, with height about 175 and mass between 1250 and 1500. When we go back to dataset "starwars", we can find out this point belongs to Jabba Desilijic Tiure. Based on starwars settiings, Jabba Desilijic Tiure is a Hutt, and all members of this species are unusual fat. As he is the only one in this dataset belongs to Hutt, this explains why this data is an outlier in the scatterplot of all characters here. 
+n_Hutt <- sum(starwars$species=="Hutt", na.rm=TRUE)
+```
+
+# More
+horizontal boxplot of cty by class with red outliers
+
+```{r}
+data(mpg)
+ggplot(mpg)+
+  geom_boxplot(aes(cty, class), outlier.color="red",na.rm = TRUE)+
+  labs(title="Boxplot of City Miles Per Gallon for Each Distinct Class", x="City Miles Per Gallon", y="Class")
+```
+
+
