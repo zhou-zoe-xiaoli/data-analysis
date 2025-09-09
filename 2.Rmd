@@ -1,0 +1,145 @@
+---
+title: "2"
+author: "Zoe"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(magick)
+```
+
+
+# plotting, some visualization
+```{r, warning=FALSE}
+data("txhousing")
+ggplot(txhousing, aes(x = month, y = median)) + geom_point() + geom_smooth()
+```
+
+a better version
+```{r}
+ggplot(txhousing, aes(x = month, y = median)) + 
+  geom_point() +
+  geom_smooth(linewidth = 0.5, se = FALSE) +
+  coord_polar()
+```
+
+
+# plot of median prices over time
+
+```{r fig.height = 10}
+ggplot(txhousing, aes(x = date, y = median, color = city)) + 
+  geom_point() + 
+  theme(legend.position="bottom")
+```
+
+better in displaying
+```{r}
+ggplot(txhousing, aes(x = date, y = median)) + 
+  geom_line() + 
+  facet_wrap(~city, ncol = 8)
+```
+
+```{r}
+txhousing |> 
+filter(city %in% c("Galveston", "San Marcos", "South Padre Island")) |>
+ggplot(aes(x = date, y = median)) +
+  geom_line() + 
+  facet_wrap(~city, ncol=1)
+```
+
+# purification in data for better performance and interpretability 
+
+a boxplot that visualizes the average monthly sales variation for each city
+```{r}
+ggplot(txhousing, aes(x = city, y = sales)) + 
+  geom_boxplot(outlier.shape = NA) + 
+  stat_summary(fun = mean, geom = "point", size = 1, color = "blue", na.rm = TRUE) +
+  labs(title = "Average Monthly Sales Variation for Each City in Texas", x = "City", y = "Sales") +
+  coord_flip()
+```
+
+# crime report information from the City of Detroit
+```{r}
+crime <- read_csv("./data/RMS_Crime_Incidents.csv.gz", show_col_types = 'FALSE')
+```
+
+If you want to see the source of this data: [City of Detroit crime event data](https://data.detroitmi.gov/datasets/detroitmi::rms-crime-incidents/explore).
+
+Description from the City of Detroit Open Data Portal:
+
+> This data reflects reported criminal offenses that have occurred in the City of Detroit. Offense data was extracted from the Detroit Police Department's records management system.
+>
+> This data reflects reported criminal offenses that have occurred in the City of Detroit. Offense data was extracted from the Detroit Police Department's records management system. This data set contains the most recent data available and is updated anytime DPD sends official crime records contributing to the Michigan Incident Crime Reporting (MICR) or the National Incident-Based Reporting systems (reflected by the IBR Date field). It should be noted that some incidents involve the commission of multiple offenses, such as a domestic assault where property was also vandalized. Accordingly, the data describe all offenses associated with all reported incidents.
+
+# data exploration
+
+* How many rows and columns are in this data set?
+```{r}
+num_rows <- nrow(crime)
+num_cols <- ncol(crime)
+```
+there are 24 columns and 467725 rows
+
+* How many precincts are there? Hint: explore the functions `n_distinct` and `unique`
+```{r}
+num_precinct <- length(unique(crime$precinct))
+```
+there are 15 precincts 
+
+
+# deeper exploration in this dataaset 
+
+distribution of the offense category
+
+```{r}
+ggplot(crime, aes(x = offense_category))  +
+  geom_bar() + 
+  labs(title = "Distribution of Offense Category", x = "Offense Category", y = "Number") + 
+  coord_flip()
+```
+
+Offenses at 'W Chicago St & Sussex' addresses
+```{r}
+crime |> filter(address == "W Chicago St & Sussex") |> select(offense_category) |> table()
+```
+
+# analysis result 
+
+Which is the most frequent offense at this address?
+
+burglary and stolen vehicle
+
+Most offenses happen in the longitude closest to: 83.2 
+
+* 83.1
+
+* 83.2
+
+* 83.0
+
+* None of the above
+
+
+suitable plot supporting the result
+```{r}
+ggplot(crime, aes(x = X)) +
+  geom_histogram(binwidth = 0.002)
+```
+
+# 2-D histogram on top of the map of Detroit
+
+```{r}
+det <- image_read("detroit.png")
+ggplot() +
+  annotation_raster(det, xmin = min(crime$X), xmax = max(crime$X), ymin = min(crime$Y), ymax = max(crime$Y)) +
+  geom_density_2d_filled(data = crime, aes(x = X, y = Y), alpha = 0.5)
+  
+  
+```
+
+
