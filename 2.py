@@ -1,28 +1,19 @@
-# -*- coding: utf-8 -*-
 """
-Stats 306 — Homework 2 (Python version)
-Author: Zoe (Xiaoli Zhou)
-
-This script mirrors the RMarkdown using:
-- pandas & numpy for data wrangling
-- matplotlib for plotting (no seaborn)
-- PIL (Pillow) for background image handling
-
 Notes:
-- The txhousing dataset is loaded from plotnine.data (same as ggplot2).
+- The txhousing dataset is loaded from plotnine.data (same as ggplot2 in R).
 - Faceting is replaced by generating one figure per city (one chart per figure).
-- Smoothing uses a simple rolling mean.
 - The Detroit crime CSV is expected at ./data/RMS_Crime_Incidents.csv.gz
-- The Detroit map image (detroit.png) is expected in the working directory.
+- The Detroit map image (detroit.png) is provided in the local file.
 """
 
+# import libararies 
 import os
 import math
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-# Try to import the txhousing dataset from plotnine.data
+# import txhousing dataset from plotnine.data
 gg_txhousing = None
 try:
     from plotnine.data import txhousing as gg_txhousing
@@ -31,31 +22,19 @@ except Exception:
 
 
 def load_txhousing() -> pd.DataFrame:
-    """
-    Load the txhousing dataset. Requires plotnine to be installed.
-    Returns a pandas DataFrame with columns including: month, median, date, city, sales.
-    """
+    # check install, and return error if not successful
     if gg_txhousing is None:
-        raise RuntimeError("Could not import plotnine.data.txhousing. Please install plotnine.")
+        raise RuntimeError("Please install plotnine.")
     return gg_txhousing.copy()
 
 
 def rolling_smooth(y: pd.Series, window: int = 5) -> pd.Series:
-    """
-    Simple moving average smoothing. Centers the window when possible.
-    """
     return y.rolling(window=window, center=True, min_periods=max(1, window // 2)).mean()
 
 
 def plot_month_vs_median_scatter_with_smooth(df: pd.DataFrame, outpath: str = None):
-    """
-    Replicates:
-        ggplot(txhousing, aes(x = month, y = median)) + geom_point() + geom_smooth()
-    """
     x = df["month"]
     y = df["median"]
-
-    # Build a smoothed curve by averaging median per month then rolling mean
     grouped = df.groupby("month")["median"].mean().sort_index()
     smooth_y = rolling_smooth(grouped, window=3)
 
@@ -71,10 +50,7 @@ def plot_month_vs_median_scatter_with_smooth(df: pd.DataFrame, outpath: str = No
 
 
 def plot_polar_month_vs_median(df: pd.DataFrame, outpath: str = None):
-    """
-    Approximation of coord_polar: scatter in polar coordinates by mapping month->angle.
-    """
-    # Map month 1..12 onto angles [0, 2π)
+    # approximation of coord_polar
     months = df["month"].to_numpy()
     angles = (months - 1) / 12.0 * 2.0 * math.pi
     r = df["median"].to_numpy()
@@ -89,10 +65,6 @@ def plot_polar_month_vs_median(df: pd.DataFrame, outpath: str = None):
 
 
 def plot_median_over_time_colored_by_city(df: pd.DataFrame, outpath: str = None):
-    """
-    Replicates:
-        ggplot(txhousing, aes(x = date, y = median, color = city)) + geom_point()
-    """
     plt.figure()
     for city, sub in df.groupby("city"):
         plt.plot(sub["date"], sub["median"], linestyle="", marker=".", label=city, alpha=0.6)
@@ -106,9 +78,6 @@ def plot_median_over_time_colored_by_city(df: pd.DataFrame, outpath: str = None)
 
 
 def plot_median_over_time_per_city(df: pd.DataFrame, max_cities: int = 8, outdir: str = None):
-    """
-    Replacement for facet_wrap: one figure per city (up to max_cities).
-    """
     cities = df["city"].dropna().unique()
     cities = sorted(cities)[:max_cities]
 
@@ -126,9 +95,6 @@ def plot_median_over_time_per_city(df: pd.DataFrame, max_cities: int = 8, outdir
 
 
 def plot_selected_cities_lines(df: pd.DataFrame, cities=None, outdir: str = None):
-    """
-    Replicates the filtered line charts for three cities, one figure per city.
-    """
     if cities is None:
         cities = ["Galveston", "San Marcos", "South Padre Island"]
 
@@ -148,23 +114,17 @@ def plot_selected_cities_lines(df: pd.DataFrame, cities=None, outdir: str = None
 
 
 def boxplot_sales_by_city(df: pd.DataFrame, outpath: str = None):
-    """
-    Boxplot of sales by city with mean overlay (no custom colors).
-    Equivalent to:
-      geom_boxplot(outlier.shape = NA) +
-      stat_summary(fun = mean, geom = "point", ...)
-    """
+    # boxplot of sales by city
     cities = sorted(df["city"].dropna().unique())
     data = [df.loc[df["city"] == c, "sales"].dropna().to_numpy() for c in cities]
 
     plt.figure(figsize=(8, max(4, len(cities) * 0.2)))
     bp = plt.boxplot(data, vert=False, labels=cities, showfliers=False)
-
-    # Overlay means
+    
     means = [np.mean(vals) if len(vals) > 0 else np.nan for vals in data]
     y_pos = np.arange(1, len(cities) + 1)
+    
     plt.scatter(means, y_pos, s=10)
-
     plt.xlabel("sales")
     plt.ylabel("city")
     plt.title("Average Monthly Sales Variation for Each City in Texas")
@@ -174,22 +134,16 @@ def boxplot_sales_by_city(df: pd.DataFrame, outpath: str = None):
 
 
 def load_detroit_crime(path: str = "./data/RMS_Crime_Incidents.csv.gz") -> pd.DataFrame:
-    """
-    Load Detroit crime CSV (gzipped). Adjust path as needed.
-    """
+    # import detroit csv
     if not os.path.exists(path):
         raise FileNotFoundError(f"Crime dataset not found at: {path}")
     return pd.read_csv(path, compression='infer')
 
 
 def basic_crime_stats(crime: pd.DataFrame):
-    """
-    Prints basic stats analogous to the R notebook narrative.
-    """
     num_rows, num_cols = crime.shape
     print(f"There are {num_cols} columns and {num_rows} rows.")
 
-    # precinct count
     if "precinct" in crime.columns:
         num_precinct = crime["precinct"].nunique(dropna=True)
         print(f"There are {num_precinct} precincts.")
@@ -198,9 +152,7 @@ def basic_crime_stats(crime: pd.DataFrame):
 
 
 def plot_offense_category_distribution(crime: pd.DataFrame, outpath: str = None):
-    """
-    Bar plot for offense_category counts.
-    """
+    # bar plot
     if "offense_category" not in crime.columns:
         print("Column 'offense_category' not found; skipping plot.")
         return
@@ -218,9 +170,7 @@ def plot_offense_category_distribution(crime: pd.DataFrame, outpath: str = None)
 
 
 def offenses_at_address(crime: pd.DataFrame, address: str = "W Chicago St & Sussex"):
-    """
-    Prints a frequency table of offense_category at a specific address.
-    """
+    # output a frequency table
     if "address" not in crime.columns or "offense_category" not in crime.columns:
         print("Required columns not found for address filter.")
         return
@@ -231,9 +181,7 @@ def offenses_at_address(crime: pd.DataFrame, address: str = "W Chicago St & Suss
 
 
 def plot_longitude_histogram(crime: pd.DataFrame, outpath: str = None):
-    """
-    Histogram of longitudes (column X in the R dataset).
-    """
+    # histogram of longitudes
     col = "X"
     if col not in crime.columns:
         print(f"Column '{col}' not found; skipping histogram.")
@@ -261,9 +209,7 @@ def plot_longitude_histogram(crime: pd.DataFrame, outpath: str = None):
 
 
 def density_on_map(crime: pd.DataFrame, map_path: str = "detroit.png", outpath: str = None):
-    """
-    2-D histogram/density overlay on Detroit map.
-    """
+    # 2D density plot overlaid on the Detroit map
     from PIL import Image
 
     if not os.path.exists(map_path):
@@ -281,11 +227,10 @@ def density_on_map(crime: pd.DataFrame, map_path: str = "detroit.png", outpath: 
 
     xmin, xmax = float(np.min(x)), float(np.max(x))
     ymin, ymax = float(np.min(y)), float(np.max(y))
-
     img = Image.open(map_path)
+    
     plt.figure(figsize=(8, 6))
     plt.imshow(img, extent=[xmin, xmax, ymin, ymax], aspect='auto')
-
     plt.hist2d(x, y, bins=150, alpha=0.5)
     plt.xlabel("X (Longitude)")
     plt.ylabel("Y (Latitude)")
@@ -296,47 +241,45 @@ def density_on_map(crime: pd.DataFrame, map_path: str = "detroit.png", outpath: 
 
 
 def main():
-    # ====== TXHOUSING SECTION ======
     txhousing = load_txhousing()
 
-    # Plot 1: month vs median with "smooth"
+    # plot: month vs median with smooth
     plot_month_vs_median_scatter_with_smooth(txhousing)
 
-    # Plot 2: polar version
+    # plot: polar version
     plot_polar_month_vs_median(txhousing)
 
-    # Plot 3: median over time, points colored by city (one figure)
+    # plot: median over time, points colored by city
     plot_median_over_time_colored_by_city(txhousing)
 
-    # Plot 4: replacement for facet_wrap — one figure per city (up to 8)
+    # plot: replacement for facet_wrap
     plot_median_over_time_per_city(txhousing, max_cities=8)
 
-    # Plot 5: selected cities (each its own figure)
+    # plot: selected cities 
     plot_selected_cities_lines(txhousing, cities=["Galveston", "San Marcos", "South Padre Island"])
 
-    # Boxplot of sales by city with mean overlay
+    # plot: boxplot of sales by city
     boxplot_sales_by_city(txhousing)
 
-    # ====== DETROIT CRIME SECTION ======
+    # crime one 
     try:
         crime = load_detroit_crime("./data/RMS_Crime_Incidents.csv.gz")
     except FileNotFoundError as e:
         print(e)
         return
 
-    # Basic stats
     basic_crime_stats(crime)
 
-    # Distribution of offense_category
+    # distribution of offense_category
     plot_offense_category_distribution(crime)
 
-    # Offenses at specific address
+    # offenses at specific address
     offenses_at_address(crime, address="W Chicago St & Sussex")
 
-    # Histogram of longitudes (X) + nearest-choice printout
+    # histogram of longitudes
     plot_longitude_histogram(crime)
 
-    # 2-D density overlay on map image
+    # 2D density overlay on map image
     density_on_map(crime, map_path="detroit.png")
 
 
