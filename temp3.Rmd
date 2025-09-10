@@ -1,0 +1,110 @@
+---
+title: "3"
+author: "Zoe"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+
+import crime data 
+```{r}
+crime <- read_csv("./data/RMS_Crime_Incidents.csv.gz")
+```
+
+source of this data: [City of Detroit crime event data](https://data.detroitmi.gov/datasets/detroitmi::rms-crime-incidents/explore).
+
+Description from the City of Detroit Open Data Portal:
+
+> This data reflects reported criminal offenses that have occurred in the City of Detroit. Offense data was extracted from the Detroit Police Department's records management system.
+>
+> This data reflects reported criminal offenses that have occurred in the City of Detroit. Offense data was extracted from the Detroit Police Department's records management system. This data set contains the most recent data available and is updated anytime DPD sends official crime records contributing to the Michigan Incident Crime Reporting (MICR) or the National Incident Based Reporting systems (reflected by the IBR Date field). It should be noted that some incidents involve the commission of multiple offenses, such as a domestic assault where property was also vandalized. Accordingly, the data describe all offenses associated with all reported incidents.
+
+
+# When do crimes occur
+
+* Work Hours (9am to 5pm]
+* Non-Work Hours (6am to 9am] and (5pm to 8pm]
+* Night (8pm to 6am]
+
+```{r}
+day_period <- cut(crime$hour_of_day, breaks = c(-Inf, 6, 9, 17, 20, Inf), labels = c("Night", "Non-Work Hours", "Work Hours", "Non-Work Hours", "Night"))
+crime2 <- mutate(crime, day_period)
+crime2 |> group_by(day_period) |> summarize(total = n())
+# the most common period of the day for a crime to occur is night
+```
+
+
+# Crime trend
+
+top three neighborhoods with the most crime, and then get the crime count for each filtered year.
+
+Also plot a line chart showing the trend of crimes over the years for these three top crime neighborhood.
+
+```{r}
+top_neighborhood <- crime |> group_by(neighborhood) |> summarize(total = n()) |> arrange(desc(total)) |> head(3)
+top_neighborhood
+
+crime_count_yearly_top3 <- crime |> filter(neighborhood %in% top_neighborhood$neighborhood, year >= 2016, year <= 2022) |> group_by(neighborhood, year) |> summarize(count = n(), .groups = 'drop')
+crime_count_yearly_top3
+
+ggplot(crime_count_yearly_top3, aes(x = year, y = count, color = neighborhood, group = neighborhood)) +
+  geom_line() +
+  labs(title = "Crimes over the Years for Top 3 Crime Neighborhood", x = "Year", y = "Number of Crimes")
+```
+
+# Find `crimes_of_interest` Areas 
+
+```{r}
+crimes_of_interest <- c("AGGRAVATED ASSAULT", "ARSON", "ASSAULT", "HOMICIDE", 
+                        "JUSTIFIABLE HOMICIDE", "KIDNAPPING", "SEX OFFENSES", 
+                        "SEXUAL ASSAULT", "WEAPONS OFFENSES")
+
+crime3 <- filter(crime, offense_category %in% crimes_of_interest)
+
+crime3_new <- mutate(crime3, new_lat = round(Y, 3), new_long = round(X, 3))
+crime_count <- crime3_new |> group_by(new_lat, new_long) |> summarize(count = n(), .groups = 'drop')
+
+ggplot(crime_count, aes(x = new_long, y = new_lat, color = count)) +
+  geom_point() +
+  scale_color_gradient(low = "grey", high = "red") + 
+  labs(title = "Scatter Plot of Number of Crimes of Interest", x = "Longitude", y = "Latitude")
+```
+
+
+# Normalizing Counts
+
+```{r}
+category_number <- crime |> group_by(offense_category) |> summarize(count = n())
+crime_normalized <- mutate(category_number, category_normalized = (count - min(count))/(max(count) - min(count)))
+crime_normalized
+```
+
+
+
+# Air Quality
+
+New Air Quality dataset, which includes daily air quality measurements in New York, May to September 1973. It is a build-in dataset in R so we can directly load the dataset.
+
+```{r}
+airquality %>% head()
+
+```
+
+a line plot with dots reflecting the variation of monthly temperature and ozone level using mean value.
+
+```{r}
+month_mean <- airquality |> group_by(Month) |> summarize(mean_temp = mean(Temp, na.rm = TRUE), mean_ozone = mean(Ozone, na.rm = TRUE))
+ggplot(month_mean) +
+  geom_line(aes(x = Month, y = mean_temp, color = "avg_temp")) +
+  geom_point(aes(x = Month, y = mean_temp, color = "avg_temp")) + 
+  geom_line(aes(x = Month, y = mean_ozone, color = "avg_ozone")) +
+  geom_point(aes(x = Month, y = mean_ozone, color = "avg_ozone")) +
+  scale_color_manual(values = c("avg_temp" = "red", "avg_ozone" = "blue")) +
+  labs(title = "Monthly Temperature and Ozone Value Line Plot", x = "Month", y = "Avergae Values", color = "Feature")
+```
+
+
