@@ -1,19 +1,10 @@
 # -*- coding: utf-8 -*-
-"""
-Homework 8 — Python version
-Author: Zoe (Xiaoli Zhou)
-
-Dependencies:
-  pip install numpy pandas
-"""
 
 import random
 import numpy as np
 import pandas as pd
 
-# ---------------------------------------------------------------------
-# Problem 1: Boarding a Plane — Karen vs. Drunk Passengers
-# ---------------------------------------------------------------------
+# boarding a plane — Karen vs. Drunk Passengers
 
 def is_karen_upset(N: int, rng: random.Random = None) -> bool:
     """
@@ -23,12 +14,12 @@ def is_karen_upset(N: int, rng: random.Random = None) -> bool:
     """
     r = rng or random
     seat_taken = [False] * N
-    first = r.randrange(N)            # 0..N-1
+    first = r.randrange(N)           
     seat_taken[first] = True
     if first == N - 1:
         return True  # Karen's seat instantly taken
 
-    for i in range(1, N - 1):         # passengers 2..N-1 (1-based) -> indices 1..N-2
+    for i in range(1, N - 1):         # passengers 2 - N-1 (1-based) -> indices 1 - N-2
         if not seat_taken[i]:
             seat_taken[i] = True
         else:
@@ -49,16 +40,14 @@ def is_karen_upset_odd_drunk(N: int, rng: random.Random = None) -> bool:
     r = rng or random
     seat_taken = [False] * N
 
-    # Passengers 1..N-1 take seats
-    for i in range(1, N):  # i is 1-based passenger number
+    # Passengers 1 - N-1 take seats
+    for i in range(1, N): 
         if i % 2 == 1:
-            # intoxicated: pick random vacant
             empties = [idx for idx, taken in enumerate(seat_taken) if not taken]
             s = r.choice(empties)
             seat_taken[s] = True
         else:
-            # sober
-            idx = i - 1  # 1-based seat index -> 0-based
+            idx = i - 1 
             if not seat_taken[idx]:
                 seat_taken[idx] = True
             else:
@@ -69,43 +58,39 @@ def is_karen_upset_odd_drunk(N: int, rng: random.Random = None) -> bool:
     return seat_taken[N - 1]
 
 
-def problem1():
-    rng = random.Random(306)  # reproducible
+def task1():
+    rng = random.Random(222)  
 
-    # (a) function is_karen_upset(N) implemented above
-
-    # (b) N=20, simulate 5000 times; count upset; NO for/while loops on replicate outer layer
+    # try: N=20, simulate 5000 times
     N = 20
     num_sim = 5000
     results_b = [is_karen_upset(N, rng) for _ in range(num_sim)]
     num_upset = sum(results_b)
     prob_upset = num_upset / num_sim
-    print("Problem 1(b):")
+    print("task1:")
     print("num_upset =", num_upset)
     print("prob_upset =", prob_upset)
 
-    # (c) N in {20,40,...,200}, each with 5000 sims
+    # generalize: N in {20,40,...,200}, each with 5000 sims
     N_values = list(range(20, 201, 20))
     probs = []
     for n in N_values:
         res = [is_karen_upset(n, rng) for _ in range(num_sim)]
         probs.append(sum(res) / num_sim)
-    print("\nProblem 1(c): estimated probabilities by N")
+    print("\ntask1: estimated probabilities by N")
     print(pd.DataFrame({"N": N_values, "prob_upset": probs}))
-    # Typically ~0.5 and does not vary much with N.
+    # typically ~0.5 and not vary much with N 
 
-    # (d) Modified scenario: every odd passenger is intoxicated. N=20, 50,000 sims
+    # modified scenario: every odd passenger is intoxicated. N=20, 50,000 sims
     num_sim_new = 50000
     N_mod = 20
     results_d = [is_karen_upset_odd_drunk(N_mod, rng) for _ in range(num_sim_new)]
     prob_upset_new = sum(results_d) / num_sim_new
-    print("\nProblem 1(d):")
+    print("\ntask1:")
     print("prob_upset (odd passengers intoxicated, N=20) =", prob_upset_new)
 
 
-# ---------------------------------------------------------------------
-# Problem 2: Die-Rolling Experiment
-# ---------------------------------------------------------------------
+# die-rolling experiment
 
 def roll_dice(N: int, rng: random.Random = None) -> int:
     """
@@ -123,25 +108,25 @@ def roll_dice(N: int, rng: random.Random = None) -> int:
     return score
 
 
-def problem2():
-    rng = random.Random(306)
+def task2():
+    rng = random.Random(222212)
     num_sim_2 = 5000
     num_repeat = 100
 
-    # (a) E[X]
+    # mean
     total_scores = [roll_dice(num_repeat, rng) for _ in range(num_sim_2)]
     expected_value = float(np.mean(total_scores))
-    print("\nProblem 2(a): E[X] ≈", expected_value)
+    print("\ntask2: E[X] ≈", expected_value)
 
-    # (b) Var(X)
+    # variance 
     variance = float(np.var(total_scores, ddof=1))
-    print("Problem 2(b): Var(X) ≈", variance)
+    print("task2: Var(X) ≈", variance)
 
-    # (c) P(X > 25)
+    # P(X > 25)
     prob_greater_25 = np.mean(np.array(total_scores) > 25)
-    print("Problem 2(c): P(X > 25) ≈", prob_greater_25)
+    print("task2: P(X > 25) ≈", prob_greater_25)
 
-    # (d) You vs Friend (independent games)
+    # You vs Friend (independent games)
     def simulation_once(N):
         x = roll_dice(N, rng)
         y = roll_dice(N, rng)
@@ -157,18 +142,16 @@ def problem2():
     prob_friend_win = outcomes.count("Friend win") / num_sim_2
     prob_draw = outcomes.count("Draw") / num_sim_2
 
-    print("Problem 2(d):")
+    print("task2:")
     print("P(I win)       ≈", prob_win)
     print("P(Friend wins) ≈", prob_friend_win)
     print("P(Draw)        ≈", prob_draw)
-    # Symmetry implies fairness: P(I win) ≈ P(Friend wins), P(Draw) small.
+    # symmetry implies fairness: P(I win) ≈ P(Friend wins), P(Draw) small.
 
 
-# ---------------------------------------------------------------------
-# Problem 3: Matching Number
-# ---------------------------------------------------------------------
+# matching number
 
-def simulation_3(N: int, rng: random.Random = None) -> bool:
+def sim3(N: int, rng: random.Random = None) -> bool:
     """
     N individuals each pick an integer 1..100 with replacement.
     Return True if at least one duplicate exists; else False.
@@ -178,23 +161,21 @@ def simulation_3(N: int, rng: random.Random = None) -> bool:
     return len(set(picks)) < N
 
 
-def problem3():
-    rng = random.Random(306)
+def task3():
+    rng = random.Random(222111)
     num_sims = 5000
     num = 1
     probability = 0.0
-    # Find smallest N such that P(duplicate) > 1/2
+    # find smallest N such that P(duplicate) > 1/2
     while probability <= 0.5:
-        probability = np.mean([simulation_3(num, rng) for _ in range(num_sims)])
+        probability = np.mean([sim3(num, rng) for _ in range(num_sims)])
         num += 1
-    print("\nProblem 3:")
+    print("task3:")
     print("Smallest N with P(duplicate) > 1/2 ≈", num)
 
 
-# ---------------------------------------------------------------------
-# Run all
-# ---------------------------------------------------------------------
+# main 
 if __name__ == "__main__":
-    problem1()
-    problem2()
-    problem3()
+    task1()
+    task2()
+    task3()
