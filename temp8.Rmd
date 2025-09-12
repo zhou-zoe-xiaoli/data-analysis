@@ -1,0 +1,212 @@
+---
+title: "8"
+author: "Zoe"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(lubridate)
+```
+
+# boarding a Pplane: Karen vs Drunk Passengers (4 points)
+
+There are $N$ airline passengers waiting to board a plane with $N$ seats. Each passenger holds a ticket corresponding to one of the $N$ seats on the flight. For simplicity, assume that the $n$-th passenger in line is assigned to seat number $n$, for each $n \in \{1,2,\cdots,N\}$.
+
+The first passenger in line is intoxicated and selects a seat randomly (i.e., with an equal chance for each seat). The rest of the passengers are sober and will take their assigned seats unless they find them occupied, in which case they will choose a vacant seat at random.
+
+Karen is the $N$-th (i.e., last) passenger in line. If she finds that her seat is already taken, she will get upset. Otherwise, she will not get upset.
+
+
+```{r}
+is_karen_upset <- function(N){
+  seat <- rep(FALSE, N)
+  intoxicated_seat = sample.int(N, 1, replace = FALSE)
+  seat[intoxicated_seat] = TRUE
+  # cat("Passenger 1 assigned to seat ", intoxicated_seat, "\n")
+  
+  if (seat[N] == TRUE){
+    return(TRUE)
+  }
+  
+  for (i in 2:(N-1)){
+    if(seat[i] == FALSE){
+      seat[i] = TRUE
+      # cat("Passenger", i, "assigned to seat ", i, "\n")
+    } else{
+      empty_seat <- which(!seat)
+      # cat("Empty seats: ", empty_seat, "\n")
+      random_index = sample.int(length(empty_seat), 1)
+      random_seat = empty_seat[random_index]
+      seat[random_seat] = TRUE
+      # cat("Passenger ", i, " assigned to seat ", random_seat, "\n")
+      if (random_seat == N){
+        return(TRUE)
+      }
+    }
+  }
+  
+  return(FALSE)
+}
+
+```
+
+```{r}
+N = 20
+num_sim = 5000
+result_b <- replicate(num_sim, is_karen_upset(N))
+num_upset = sum(result_b)
+prob_upset = num_upset / num_sim
+num_upset
+prob_upset
+
+```
+
+```{r}
+N_values <- seq(20, 200, by = 20)
+probabilities <- numeric(length(N_values))
+
+for (i in seq_along(N_values)) {
+  N = N_values[i]
+  result_c = replicate(num_sim, is_karen_upset(N))
+  probabilities[i] = sum(result_c) / num_sim
+}
+
+probabilities
+# the probability Karen gets upset is around 0.50, so it does not vary with N
+```
+
+# a new version of Karen problem 
+
+There are $N$ airline passengers waiting to board a plane with $N$ seats. Each passenger holds a ticket corresponding to one of the $N$ seats on the flight. For simplicity, assume that the $n$-th passenger in line is assigned to seat number $n$, for each $n \in \{1,2,\cdots,N\}$.
+
+**Every odd passenger in line** **(i.e., the first, third, fifth, etc.)** is intoxicated and selects a seat randomly (i.e., with an equal chance for each vacant seat). The rest of the passengers are sober and will take their assigned seats unless they find them occupied, in which case they will choose a vacant seat at random.
+
+Karen is the $N$-th (i.e., last) passenger in line. If she finds that her seat is already taken, she will get upset. Otherwise, she will not get upset.
+
+```{r}
+is_karen_upset_new <- function(N) {
+  seat <- rep(FALSE, N)
+  
+  for (i in 1:(N-1)){
+    if (i %% 2 == 1){ # intoxicated passengers
+      empty_seat <- which(!seat)
+      random_index = sample.int(length(empty_seat), 1)
+      random_seat = empty_seat[random_index]
+      seat[random_seat] = TRUE
+    } else { # sober passengers
+      if (seat[i] == FALSE){
+        seat[i] = TRUE
+      } else{
+        empty_seat <- which(!seat)
+        random_index = sample.int(length(empty_seat), 1)
+        random_seat = empty_seat[random_index]
+        seat[random_seat] = TRUE
+      }
+    }
+  }
+
+  if (seat[N] == TRUE){
+    return(TRUE)
+  } else {
+    return(FALSE)
+  }
+}
+
+num_sim_new = 50000
+N =20
+result_d <- replicate(num_sim_new, is_karen_upset_new(N))
+prob_upset_new <- sum(result_d) / num_sim_new
+prob_upset_new
+```
+
+# die-rolling experiment
+
+Simulate a die-rolling experiment. The experiment goes as follows. Suppose you are given two fair six-sided dice and you do the following:
+
+1.  Roll both dice.
+2.  If both dice show even numbers when rolled, award yourself one point; otherwise, award yourself no points.
+3.  Repeat steps one and two for 100 times. Let $X$ be your total score at the end of the experiment.
+
+```{r}
+roll_dice <- function(N) {
+  score = 0
+  for (i in 1:N){
+    dice1 = sample(1:6, 1)
+    dice2 = sample(1:6, 1)
+    if (dice1 %% 2 == 0 && dice2 %% 2 == 0){
+      score = score + 1
+    }
+  }
+  return(score)
+}
+
+num_sim_2 = 5000
+num_repeat = 100
+total_scores = replicate(num_sim_2, roll_dice(num_repeat))
+expected_value = mean(total_scores)
+expected_value
+```
+
+
+```{r}
+variance = var(total_scores)
+variance
+```
+
+```{r}
+count_greater_25 = sum(total_scores > 25)
+prob_greater_25 = count_greater_25 / num_sim_2
+prob_greater_25
+```
+
+Suppose you and your friend both play this game using separate two dice. Let your score be $X$ and let their score be $Y$. Whoever gets a higher score will win. If both of you get the same score, the game results in a draw. Estimate the probability that (i) you win (i.e., $X > Y$); (ii) your friend wins (i.e., $Y > X$); and (iii) the game results in a draw (i.e., $X = Y$)? 
+
+```{r}
+simulation <- function(N){
+  x = roll_dice(N)
+  y = roll_dice(N)
+  if (x > y){
+    return("I win")
+  }else if (y > x){
+    return("Friend win")
+  }else {
+    return("Draw")
+  } 
+}
+
+outcome = replicate(num_sim_2, simulation(num_repeat))
+prob_win = sum(outcome == "I win")/num_sim_2
+prob_win
+prob_friend_win = sum(outcome == "Friend win")/num_sim_2
+prob_friend_win
+prob_draw = sum(outcome == "Draw")/num_sim_2
+prob_draw
+
+# since prob_win is approximate equal to prob_friend_win and prob_draw is low, I would say this is a fair game 
+```
+
+# matching number
+
+There are $N$ individuals in a room. Each individual jots down a positive integer between 1 and 100 (including 1 and 100).
+
+Use simulation to identify the **smallest** **positive integer** $N$ such that the probability of at least a pair of individuals recording an identical number is more than $1/2$.Show the estimation of $N$.
+
+```{r}
+simulation_3 <- function(N) {
+  number = sample(1:100, N, replace = TRUE)
+  exist_duplicate <- length(unique(number)) < N
+  return(exist_duplicate)
+}
+
+num = 1
+probability = 0
+while (probability <= 1/2) {
+  probability = mean(replicate(5000, simulation_3(num)))
+  num = num + 1
+}
+print(num)
+```
