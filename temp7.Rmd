@@ -1,0 +1,218 @@
+---
+title: "7"
+author: "Zoe"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(ggplot2)
+```
+
+
+# employee attrition
+using `HR_Analytics.csv`, a fictional, data set that is created by IBM data scientists
+
+```{r, warning=FALSE}
+# read data
+hr = read.csv("HR_Analytics.csv")
+```
+
+Convert the following factors: `Attrition`, `BusinessTravel`,`Department`,`EducationField`, `Gender`, `JobRole`, `MaritalStatus`, `Over18`, and `OverTime` into categorical type
+
+And generate a plot showing the distribution of Employee `Attrition` in terms of `Age` and `Gender`
+
+```{r}
+hr2 <- hr |> mutate_at(vars(Attrition, BusinessTravel, Department, EducationField, Gender, JobRole, MaritalStatus, Over18, OverTime), as.factor)
+
+hr2 |> ggplot(aes(x = Attrition, y = Age, fill = Gender)) + 
+  geom_boxplot() + 
+  labs(title = "Distribution of Employee Attrition by Age and Gender",
+       x = "Attrition", y = "Age", fill = "Gender")
+```
+
+
+generate a dot plot for the mean `JobSatisfaction` value across `JobRole` and reorder the factor in terms of `JobSatisfaction.` 
+
+```{r}
+reordered <- 
+  hr2 |> group_by(JobRole) |> 
+  summarize(mean_JobSatisfaction_JobRole = mean(JobSatisfaction, na.rm = TRUE)) |>
+  ungroup() |>
+  arrange(mean_JobSatisfaction_JobRole)
+
+ggplot(reordered, aes(x = reorder(JobRole, mean_JobSatisfaction_JobRole), y = mean_JobSatisfaction_JobRole)) + 
+  geom_point() + 
+  coord_flip()+ 
+  labs(title = "Mean JobSatisfaction Across JobRoles",
+       x = "JobRole", y = "Mean JobSatisfaction")
+# JobRole Human Resources has the lowest JobSatisfaction
+# JobRole Healthcare Representative has the highest JobSatisfaction
+```
+
+
+convert `DistanceFromHome` into a categorical variable with three levels:
+
+* "Not_Far" (DistanceFromHome <= 10)
+* "Acceptable" (10 < DistanceFromHome <= 20)
+* "Too_Far" (DistanceFromHome >20)
+
+Also generate a plot showing the Attrition Rate (which is the proportion of yes) across `DistanceFromHome` and `BusinessTravel`
+
+```{r}
+hr3 <- hr2 |> mutate(DistanceFromHome = cut(DistanceFromHome, breaks = c(-Inf, 10, 20, Inf),  labels = c("Not_Far", "Acceptable", "Too_Far")))
+
+hr3 |> group_by(DistanceFromHome, BusinessTravel) |> 
+  summarize(Attrition_rate = mean(Attrition == "Yes"), .groups = 'drop') |> 
+  ggplot(aes(x = DistanceFromHome, y = BusinessTravel, fill = Attrition_rate)) +
+  geom_tile() +
+  labs(title = "Attrition Rate Across DistanceFromHome and BusinessTravel",
+       x = "Distance from Home", y = "Business Travel")
+
+```
+
+# extract words containing an evern number of the letter 'e'
+
+```{r}
+words[str_detect(words, '\\b[^e]*(e[^e]*e)+[^e]*\\b')]
+```
+
+
+# sentiment analysis on Harry Potter books 
+
+```{r}
+##### run to install necessary packages if they were not installed before
+##### Please DON'T PRINT the installation output
+##### You can comment these lines after running them
+# if (!require(remotes)) install.packages("remotes")
+# if (!require(tidytext)) install.packages("tidytext")
+
+remotes::install_github("bradleyboehmke/harrypotter")
+
+library(tidyverse)
+library(stringr)
+library(harrypotter)
+library(tidytext)
+```
+
+Note: 
+
+1. The file `afinn.RData` contains a sentiment score for a large number of words in the English language:
+
+```{r}
+load(url("https://datasets.stats306.org/afinn.RData"))
+head(afinn)
+```
+
+2. Negatively connoted words receive low scores, while positively connoted words receive high scores:
+
+```{r}
+filter(afinn, word %in% c("angry", "sad", "happy", "wonderful"))
+```
+
+3. The `tidytext::unnest_tokens()` function can be used to break a chunk of text into "tokens" (e.g., words, sentences). It works as follows. Consider the following tibble, which contains all 19 chapters of the second book in the Harry Potter series:
+
+```{r}
+chamber_tbl <- tibble(chapter = seq_along(chamber_of_secrets),
+                   text = chamber_of_secrets)
+```
+
+To perform sentiment analysis, we need to break each chapter into words so that we can join it to the `afinn` table. This is what `unnest_tokens()` does:
+
+```{r}
+chamber_tok <- unnest_tokens(chamber_tbl, input = text, output = word) # break sentences into words
+chamber_tok
+```
+
+4. define the *sentiment score* of a sentence as the average sentiment value of all words (based on the `afinn` data set). Ignore words that do not exist in `afinn` when calculating sentiment scores. For example, the sentiment score of "*i love you i adore you i am waiting for you*" is $(3+3)/2=3$.
+
+```{r}
+afinn |>
+  filter(word %in% c("i", "love", "you", "adore", "am", "waiting", "for"))
+```
+
+5. Unless specified otherwise, all matches are case insensitive.
+
+Task: by joining `chamber_tok` (defined above) to another table containing word sentiment value and summarizing, generate scores of how positive or negative the text is. Concretely, using `chamber_tok` and `afinn`, and can assign sentiment scores to various portions of text, with a plot reflecting it changes varies 19 chapters of the second book 
+
+```{r}
+chamber_tok |> 
+  left_join(afinn, join_by(word)) |> 
+  group_by(chapter) |> 
+  summarize(sentiment_score = mean(value, na.rm = TRUE)) |> 
+  ggplot(aes(x = chapter, y = sentiment_score)) + 
+  geom_line() +
+  geom_smooth(se = FALSE) + 
+  labs(title = "Sentiment Changes over 19 Chapters of the Second Book in the Harry Potter Series", x = "Chapter", y = "Sentiment Score")
+
+# Conclusion: through the whole book, firstly, it gets more and more positively connoted, and then after chapter 7, it gets more and more negatively connoted in general and with some relatively small increase in connotes to make the whole book has more ups and downs, which is more readable and interesting.  
+```
+
+
+Task: perform sentiment analysis on all 7 books in the Harry Potter series, and report a table with each book's average sentiment score, and create a corresponding suitable plot 
+
+```{r}
+# run for understanding if needed
+# help(package = "harrypotter")
+```
+
+```{r}
+phil_tbl <- tibble(chapter = seq_along(philosophers_stone),
+                   text = philosophers_stone)
+prisoner_tbl <- tibble(chapter = seq_along(prisoner_of_azkaban),
+                   text = prisoner_of_azkaban)
+goblet_tbl <- tibble(chapter = seq_along(goblet_of_fire),
+                   text = goblet_of_fire)
+phoenix_tbl <- tibble(chapter = seq_along(order_of_the_phoenix),
+                   text = order_of_the_phoenix)
+prince_tbl <- tibble(chapter = seq_along(half_blood_prince),
+                   text = half_blood_prince)
+hallows_tbl <- tibble(chapter = seq_along(deathly_hallows),
+                   text = deathly_hallows)
+
+all_books <- bind_rows(
+  phil_tbl |> mutate(book = "Philosopher's Stone"),
+  chamber_tbl |> mutate(book = 'Chamber of Secrets'),
+  prisoner_tbl |> mutate(book = "Prisoner of Azkaban"),
+  goblet_tbl |> mutate(book = "Goblet of Fire"),
+  phoenix_tbl |> mutate(book = "Order of the Phoenix"),
+  prince_tbl |> mutate(book = "Half-Blood Prince"),
+  hallows_tbl |> mutate(book = "Deathly Hallows")
+)
+```
+
+```{r}
+all_books |> 
+  unnest_tokens(input = text, output = word) |>
+  left_join(afinn, join_by(word)) |>
+  group_by(book) |>
+  summarize(sentiment_score = mean(value, na.rm = TRUE)) |> 
+  arrange(desc(sentiment_score)) -> all_books_sentiment
+
+ggplot(all_books_sentiment, aes(x = reorder(book, sentiment_score), y = sentiment_score)) +
+  geom_bar(stat = "identity") +
+  coord_flip() + 
+  labs(title = "Average Sentiment Scores of Each Harry Potter Book",
+       x = "Book",
+       y = "Average Sentiment Score")
+
+# most positive: Philosopher's Stone
+# darkest: Deathly Hallows
+```
+
+
+Task: print out the unique words across any of the books that have a score of 5
+
+```{r}
+all_books |> 
+  unnest_tokens(input = text, output = word) |> 
+  inner_join(afinn, join_by(word)) |>
+  filter(value == 5) |>
+  select(word) |> 
+  unique()
+```
+
