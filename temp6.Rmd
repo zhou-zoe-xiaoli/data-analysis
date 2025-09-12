@@ -1,0 +1,137 @@
+---
+title: "6"
+author: "Zoe"
+output: pdf_document
+---
+
+
+
+```{r}
+library(tidyverse)
+library(nycflights13)
+library(maps)
+```
+
+data: `nycflights13` data
+
+This package provides the following data tables.
+
+* `?flights`: all flights that departed from NYC in 2013
+* `?weather`: hourly meteorological data for each airport
+* `?planes`: construction information about each plane
+* `?airports`: airport names and locations
+* `?airlines`: translation between two letter carrier codes and names
+
+
+# number of flights for each destination 
+
+consider 'lon > -130 as the continental US' and save it to a table called `n_flights_per_dest` 
+
+```{r}
+n_flights_per_dest <- flights |> inner_join(airports, join_by(dest == faa)) |> filter(lon > -130) |> group_by(dest) |> summarize(n = n()) |> left_join(airports, join_by(dest == faa)) |> select(dest, lat, lon, n)
+
+us_map <- map_data("usa")
+
+n_flights_per_dest |> 
+  mutate(count_interval = cut(n, breaks = c(0, 5000, 10000, 15000, 20000), labels = c("less than 5k", "5k-10k", "10k-15k", "15k-20k"))) |>
+  ggplot(aes(x = lon, y = lat, color = count_interval)) + 
+  annotation_map(us_map, fill = "white", color = "black") +
+  borders("state", colour = "black") + 
+  geom_point() +
+  labs(title = "Number of flights for each destinations in continental U.S.",
+       x = "lon", y = "lat")
+```
+
+
+focusing on John F. Kennedy International Airport (JFK) 
+
+Join the `weather` and `flights` tables by `year`, `month`, `day`, "hour", and `origin`, keeping only rows shared in both. Name the new table `jfk_weather_combined`, and use it to plot the relationship between daily wind speed and daily average departure delay at JFK. 
+
+```{r}
+jfk_weather_combined <- weather |> filter(origin == "JFK")|> inner_join(flights, by = c("year", "month", "day", "hour", "origin"))
+jfk_weather_combined |> 
+  group_by(year, month, day) |> 
+  summarize(daily_avg_wind_speed = mean(wind_speed, na.rm = TRUE), daily_avg_departure_delay = mean(dep_delay, na.rm = TRUE), .groups = 'drop') |>
+  ggplot(aes(x = daily_avg_wind_speed, y = daily_avg_departure_delay)) +
+  geom_point() +
+  geom_smooth(se = FALSE) +
+  labs(title = "Relationship between Daily Wind Speed and Daily Average Departure Delay at JFK",
+       x = "Daily Average Wind Speed (mph)",
+       y = "Daily Average Departure Delay (minutes)") 
+# relationship: the higher the daily average wind speed, the higher the daily average departure delay
+
+```
+
+
+
+# join and pivot on 'flight' table 
+
+Focus on the following airlines: American, Delta, JetBlue, US Airways and United, and consider only non-cancelled flights (i.e., `arr_delay` is not `NA`). And whenever a flight's capacity is unknown, we set it to 50.
+
+"For each airline, do you know whether its total capacity in 2013 roughly uniformly distributed across all 12 months?"
+
+```{r}
+intersted_airlines <- c("American Airlines Inc.", "Delta Air Lines Inc.", "JetBlue Airways", "US Airways Inc.", "United Air Lines Inc.")
+filtered_flights <- flights |> inner_join(airlines, join_by(carrier)) |> filter(name %in% intersted_airlines, !is.na(arr_delay)) |> inner_join(planes, join_by(tailnum)) |> mutate(seats = if_else(is.na(seats), 50, seats))
+
+filtered_flights |> group_by(name, month) |> summarize(n = sum(seats), .groups = 'drop') |>
+  ggplot(aes(x = factor(month), y = n)) + geom_col() + 
+  facet_wrap(~ name, scales = "free_y") + 
+  labs(title = "Total Capacity Across All 12 Months (2013) for Each Airline",
+       x = "Month",
+       y = "Total Capacity")
+
+# none of airlines, American, Delta, JetBlue, US Airways and United, is perfectly uniformly distributed across all 12 months
+# US Airways has an increase in total capacity from month 1 to 10 and decrease after that
+# American and Delta have a low total capacity in winter months 
+# JetBlue and United can consider roughly uniformly distributed across all 12 months
+```
+
+According to Wikipedia, there are more Boeing 737 as compared to Airbus A320 and its variants (Airbus A318, A319 and A321). Does this means that there are more Boeing 737 flights than Airbus A318, A319, A320, and A321 flights combined for each origin airport?
+
+```{r}
+filtered <- planes |> 
+  filter(str_detect(model, "^737|^A318|^A319|^A320|^A321")) |> 
+  inner_join(flights, join_by(tailnum))
+
+filtered |> group_by(
+  origin, 
+  manufacturer = if_else(str_detect(model, "^737"), "Boeing", "Airbus A320 and its variants")) |> 
+  summarize(num = n(), .groups = 'drop') |>
+  ggplot(aes(x = origin, y = num, fill = manufacturer)) +
+  geom_col(position = "dodge") + 
+  labs(title = "Number of Flights by Origin and Manufacturer",
+       x = "Origin",
+       y = "Number of Flights") 
+
+# My plot shows the number of flights for Boeing 737 and Airbus A320 and its variants originated from EWR, JFK, LGA, which are all flights that departed from NYC in 2013 in data set flights
+# We can find out that, EWR has more Boeing flights than Airbus A320 and its variants flights, while JFK and LGA have more Airbus A320 and its variants flights than Boeing flights 
+```
+
+
+Considering that the three origin airports, JFK, EWR, and LGA, are in close proximity to each other, Whether there are times **in January** at which there exist two airports whose temperatures differ by more than 10 degrees? By *time*, referring to a (`year`, `month`, `day`, `hour`) tuple
+
+```{r}
+filtered2 <- flights |> 
+  filter(origin %in% c("JFK", "EWR", "LGA")) |>
+  inner_join(weather, by = c("year", "month", "day", "hour", "origin")) |> 
+  filter(month == 1)
+
+tem_diff <- filtered2 |> 
+  group_by(year, month, day, hour) |>
+  summarize(
+    temp_diff_JFK_EWR = abs(mean(temp[origin == "JFK"]) - mean(temp[origin == "EWR"])),
+    temp_diff_JFK_LGA = abs(mean(temp[origin == "JFK"]) - mean(temp[origin == "LGA"])),
+    temp_diff_EWR_LGA = abs(mean(temp[origin == "EWR"]) - mean(temp[origin == "LGA"])), 
+    .groups = 'drop')
+
+tem_diff_10 <-
+  tem_diff |> 
+  filter(temp_diff_JFK_EWR > 10 | temp_diff_JFK_LGA > 10 | temp_diff_EWR_LGA > 10)
+
+tem_diff_10
+nrow(tem_diff_10)
+# there are 8 times in January at which there exist two airports whose temperatures differ by more than 10 degrees
+```
+
+
