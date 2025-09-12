@@ -1,0 +1,134 @@
+---
+title: "4"
+author: "Zoe"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+
+# Create and define custom functions 
+
+the 90% quantile of a vector without calling the `quantile` function in R
+
+```{r}
+my_quantile <- function(x, quant){
+  sorted <- sort(x)
+  index <- ceiling(quant * length(sorted))
+  return(sorted[index])
+}
+
+# try with data 
+mpg |> group_by(manufacturer) |> 
+  summarize(cty_90 = my_quantile(cty, 0.90), hwy_90 = my_quantile(hwy, 0.90))
+```
+
+ a predicate function (`positive`) that returns true if all values in a vector are strictly greater than zero.
+
+Write a predicate (`no_outliers`) that returns true if all observations are within 3 standard deviations of the mean.
+
+```{r}
+set.seed(2024306)
+n <- 100
+d <- tibble(x = runif(n), y = runif(n, -1, 1), z = rnorm(100)^2, w = log(runif(n)))
+
+positive <- function(x, na.rm = TRUE){
+  all(x > 0)
+}
+no_outliers <- function(x, na.rm = TRUE){
+  mean <- mean(x, na.rm = TRUE)
+  s_d <- sd(x, na.rm =TRUE)
+  all(abs(x - mean) <= 3 * s_d)
+}
+
+d |> select(where(positive))
+d |> select(where(no_outliers))
+```
+
+
+
+# summary and summarize 
+
+```{r}
+d2 <- d
+d2[10, 1] <- NA
+d2[50:70, 2] <- NA
+summary(d2)
+```
+```{r}
+summary2 <- function(x){
+  min = min(x, na.rm = TRUE)
+  q1 <- quantile(x, 0.25, na.rm = TRUE)
+  median <- median(x, na.rm = TRUE)
+  mean <- mean(x, na.rm = TRUE)
+  q3 <- quantile(x, 0.75, na.rm = TRUE)
+  max <- max(x, na.rm = TRUE)
+  no_missing <- sum(is.na(x))
+  
+  return(c('Min' = min, '1st Qu' = q1, 'Median' = median, 'Mean' = mean, '3rd Qu' = q3, 'Max' = max, 'Number Missing' = no_missing))
+}
+
+summarize_all(d2, ~round(summary2(.x), digits = 5)) |> mutate(name = c('Min', '1st Qu', 'Median', 'Mean', '3rd Qu', 'Max', 'Number Missing' )) |> select(name, everything())
+
+```
+
+
+# some viusalizations 
+
+with the nycflights13 dataset
+
+```{r}
+library(nycflights13)
+flights |> head(2)
+```
+
+the top 10 and bottom 10 carriers and display them with a suitable bar plot
+
+```{r}
+carrier_count <- 
+  flights |> group_by(carrier) |> summarize(total = n()) |> arrange(total)
+top_10 <- carrier_count |> tail(10)
+bottom_10 <- carrier_count |> head(10)
+combined <- rbind(top_10, bottom_10)
+
+print(c("top 10 carries: ", top_10$carrier))
+print(c("bottom 10 carries: ", bottom_10$carrier))
+
+ggplot(top_10, aes(x = reorder(carrier, total), y = total)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Top 10 Carriers", x = "Carrier", y = "Frequency Count")
+ggplot(bottom_10, aes(x = reorder(carrier, total), y = total)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Bottom 10 Carriers", x = "Carrier", y = "Frequency Count")
+```
+
+# hypothesis testing
+
+using the `starwars` dataset to practice more about data manipulation and visualizations
+
+a bar plot that shows the distribution of `eye_color`, as the proportion for both males and females whose `eye_color` are `black`, `blue`, and `brown`
+
+```{r}
+clean_starwars <- starwars |> filter(!is.na(sex) & !is.na(eye_color)) |> filter(sex == "female" | sex == "male") |> filter(eye_color == "black" | eye_color == "blue" | eye_color == "brown")
+
+eye_color <- clean_starwars |> group_by(sex, eye_color) |>
+  summarize(count = n()) |> mutate(prop = count / sum(count))
+
+ggplot(eye_color, aes(x = sex, y = prop, fill = eye_color)) +
+  geom_bar(stat = "identity") +
+  labs (title = "Distribution of Eye-color based on Sex", x = "Sex", y = "Proportion")
+
+fisher.test(table(clean_starwars$sex, clean_starwars$eye_color))
+
+# Based on the Fisher's exact test results, 
+# p-value is 0.6825, which is greater than the typical significance level of 0.05, 
+# so we fail to reject the null hypothesis 
+# Thus, based on the analysis, we do not have sufficient evidence to support that there is  association between sex and eye color in this dataset 
+```
+
