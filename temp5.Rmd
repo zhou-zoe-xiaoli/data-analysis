@@ -1,0 +1,141 @@
+---
+title: "5"
+author: "Zoe"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(reshape2)
+```
+
+EDA focus one
+
+all data is from the storms dataset
+
+# Identify Missing Values 
+
+```{r}
+storms
+```
+
+```{r}
+colnames(storms)[colSums(is.na(storms)) > 0]
+```
+
+impute missing values, NA, in 'hurrican_force_diameter' column
+
+```{r}
+storms |> filter(!is.na(hurricane_force_diameter)) |> 
+  ggplot(aes(x = hurricane_force_diameter)) + 
+  stat_ecdf() + 
+  labs(title = "ECDF Plot of Hurricane Force Diameter", y = "Proportion less than x")
+# according to the ECDF plot of hurricane force diameter, we can find out that there are around 78% of hurricanes have a force diameter of 0; as 0 is the most frequent data, I decide to take 0 for imputing the NA values in "hurricane force diameter" column 
+```
+
+impute missing values, NA, about 'category" for the storm and its corresponding 'hurricane_force_diameter'
+
+```{r}
+# category, NA, means not a hurricane 
+# for storms that categorized as NA, not a hurricane, then it does not have a diameter, then the hurricane_force_diameter for it would be 0
+storms2 <- 
+  mutate(storms, new_hurricane_force_diameter = if_else(is.na(category) & is.na(hurricane_force_diameter), 0, hurricane_force_diameter))
+```
+
+impute values for NAs in "hurricane_force_diameter' for the rest ones 
+
+```{r}
+ggplot(storms2, aes(x = new_hurricane_force_diameter, fill = category)) +
+  geom_histogram(position = "identity") +
+  facet_wrap(~ category, scales = "free") +
+  labs(title = "Distribution of Hurricane Force Diameter by Category", 
+       x = "Hurricane Force Diameter")
+
+storms3 <- storms2 |> group_by(category) |> 
+  mutate(mean_hurricane_force_diameter = mean(new_hurricane_force_diameter, na.rm = TRUE)) |>
+  ungroup() |>
+  mutate(new_hurricane_force_diameter = if_else(is.na(new_hurricane_force_diameter) & !is.na(category), mean_hurricane_force_diameter, new_hurricane_force_diameter))
+```
+
+
+# variations and changes over time for different hurricanes 
+
+```{r}
+frequency_category <- storms |> filter(!is.na(category)) |> group_by(category, year) |> summarize(total = n_distinct(name), .groups = 'drop') 
+ggplot(frequency_category) + 
+  geom_line(aes(x = year, y = total, color = factor(category))) + 
+  geom_smooth(aes(x = year, y = total, color = factor(category)), method = "lm", se = FALSE) +
+  labs(title = "Frequency of Hurricanes by Category Over Time",  x = "Year", y = "Count", color = "Category")
+# for all 5 different hurricanes, their frequency increase over years
+# from trend line, we can see that category 5 hurricane increases over years
+# noticeable trends: 
+# from category 1 to 5, each category's frequency increases over the years; 
+# the speed of increase in frequency decreases from category 1 to 5
+```
+
+
+
+# create new column named 'date' and find special days 
+
+find the days that have the highest number of unique storms (i.e., unique storm names) recorded
+
+```{r}
+storms4 <- storms3 |> mutate(date = ymd(paste(year, month, day)))
+storms4 |> group_by(date) |> summarize(unique_storms = n_distinct(name)) |> slice_max(unique_storms)
+```
+
+
+# seasonal patterns for specific type of hurriances
+
+```{r}
+monthly_frequncy <- storms |> filter(!is.na(category)) |> group_by(year, month, category) |> summarize(frequency = n(), .groups = 'drop')
+ggplot(monthly_frequncy, aes(x = month, y = frequency)) + 
+         geom_col() + 
+         facet_wrap(~ category)+
+         coord_polar() +
+         labs(title = "Monthly Frequency of Hurricanes by Category", x = "Month", y = "Frequency", color = "Category")
+# more occurrence on late summer and early fall, which is around month 9, especially for hurricanes category 1, 2, 3, 4
+```
+
+
+# variation of max wind speed varies with different hurricanes 
+
+```{r}
+# how does the maximum sustained wind speed (wind) varies with different category hurricane 
+storms |> filter(!is.na(wind) & !is.na(category)) |> ggplot(aes(x = factor(category), y = wind)) + geom_boxplot() + labs(title = "Wind Speed Variation Across Different Hurricane Categories", x = "Category", y = "Wind Speed (in knots)")
+# it looks like there is a linear relationship between the hurricane' category and their maximum sustained wind speed
+# for each category, except category 2, the difference between maximum sustained wind speed of median and of 1st quantile is similar to the difference between maximum sustained wind speed of median and of 3rd quantile
+
+```
+
+# potential relationship between wind speed and air pressure at storms' centers 
+
+```{r}
+# is there any relationship between the  maximum sustained wind speed and air pressure at the storm's center for different category hurricane
+storms |> filter(!is.na(wind) & !is.na(category) & !is.na(pressure)) |> 
+  ggplot(aes(x = wind, y = pressure, color = factor(category))) + 
+           geom_point() + 
+           labs(title = "Relationship Between Maximum Sustained Wind Speed and Air Pressure", x = "Maximum Sustained Wind Speed (knots)", y = "Air Pressure at Storm's Center (millibars)")
+# for hurricanes in all categories, the larger the maximum sustained wind speed is. the smaller the air pressure at the storms center is 
+```
+
+
+
+# correlation coefficients between varies parameters of the storm, with a heatmap 
+
+```{r}
+filtered <- storms |> select(where(is.numeric)) |> na.omit()
+cor_matrix <- cor(filtered)
+cor_shaped <- melt(cor_matrix)
+ggplot(cor_shaped, aes(Var1, Var2, fill = value)) + 
+  geom_tile() + 
+  scale_fill_gradient2(low = "blue", mid = "white", high = "red", midpoint = 0,  breaks = c(-1, 0, 1), labels = c("Negative", "No", "Positive"),
+                       name = "Correlation") + 
+  labs(title = "Correlation Heatmap of Storm Parameters") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+
